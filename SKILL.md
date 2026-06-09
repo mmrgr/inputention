@@ -1,6 +1,6 @@
 ---
 name: inputention
-description: Predict and display exactly nine likely next user inputs, clarify vague or incomplete user inputs by offering numbered full-intent candidates, and expand numbered replies into complete user intent before answering. Use immediately whenever the very first character of the user's message is "?" or "？"; this prefix activates continuous Inputention behavior, so after every clear answer the assistant must append exactly 9 likely next inputs until the user explicitly asks to stop. Also use when the user asks to predict likely next questions, generate nine possible follow-up inputs, help slow typists continue more smoothly, reduce wording pressure when users worry an AI may misunderstand them, clarify a short/ambiguous keyword-like request, or replies with a number to select a recent prediction or clarification candidate.
+description: 'Predict exactly nine likely next user inputs, clarify vague or incomplete inputs with 3-9 numbered full-intent candidates before answering, and complete numbered replies such as "4; pumpkin", "8；200字", or "5；求职；正式" by filling the selected candidate slots before answering. Use immediately when the first character is "?" or "？"; this activates continuous Inputention behavior: clear complete requests are answered then followed by 9 predictions, while fragmentary or not-fully-determined requests first receive 3-9 clarification candidates. Numbered completion has highest priority when a recent candidate list exists. Also use for likely follow-up inputs, slow typists, wording-pressure reduction, ambiguous keyword-like requests, and numbered selections.'
 ---
 
 # Inputention
@@ -10,10 +10,21 @@ Act as a **next input predictor + vague input clarifier + intent expander**. Hel
 This skill has three modes:
 
 - **Next-input prediction**: Predict what the user may ask next after the current conversation.
-- **Vague-input clarification**: When the user's input is too short, ambiguous, keyword-like, missing an object, or likely to be misread, offer likely complete intents instead of guessing.
-- **Numbered expansion**: When the user selects a numbered option and optionally supplies details, reconstruct the full intent and answer it.
+- **Intent clarification**: When the user's input is too short, ambiguous, keyword-like, missing an action/object, or not fully determined, offer 3-9 likely complete intents instead of guessing or answering.
+- **Numbered completion**: When the user selects a numbered option and optionally supplies details, fill the selected option's slots, reconstruct the full intent, and answer it.
 
 Once activated by `?`, `？`, `$inputention`, or an explicit request to use Inputention, stay active for the current conversation until the user explicitly says to stop, such as "stop predicting", "不要再预测", "不需要这个功能", or equivalent.
+
+## Priority Order
+
+Apply modes in this order:
+
+1. **Opt-out**: if the user clearly asks to stop Inputention behavior, stop predicting/clarifying after answering that request if needed.
+2. **Numbered completion**: if there is a recent Inputention prediction or clarification list and the current message plausibly selects one of its numbered items, complete that item first. Do not treat the message as a fresh clear request and do not only append predictions.
+3. **Intent clarification**: if the current message is not a complete, fully determined request, offer 3-9 candidate intents and wait for the user's next turn.
+4. **Clear-request answer + prediction**: if the current message is semantically clear, answer it, then append exactly 9 predictions while Inputention is active.
+
+Numbered completion is the "completion" feature. Intent clarification is the pre-completion step: it prepares selectable candidates for a later completion turn and must not answer the ambiguous input yet.
 
 ## Explicit Trigger Prefix
 
@@ -23,7 +34,7 @@ Treat the leading question mark as an invocation prefix, not as part of the user
 
 - If text remains after the prefix, apply this skill to that remaining text and keep Inputention active for later turns.
 - If the remaining text asks for next-input prediction, run next-input prediction.
-- If the remaining text is short, ambiguous, keyword-like, or incomplete, run vague-input clarification.
+- If the remaining text is short, ambiguous, keyword-like, lacks an explicit action, is only contact information, or is an object/keyword string without a complete task, run intent clarification.
 - If the remaining text is already clear, answer the request first, then append exactly 9 likely next inputs.
 - If no text remains after the prefix, run next-input prediction from the current conversation context and output exactly 9 items.
 
@@ -45,10 +56,12 @@ For fillable slots:
 
 Use **next-input prediction** when the user explicitly asks for likely next inputs, possible follow-up questions, nine options, "predict what I will ask next", "what might I ask next", asks to use this skill, sends only the explicit trigger prefix `?`/`？`, or has already activated Inputention and just received a clear answer.
 
-Use **vague-input clarification** only when direct answering is likely to answer the wrong question. Typical triggers:
+Use **intent clarification** when the user input is not a complete, fully determined request. Typical triggers:
 
 - The input is only a keyword, such as `VPN`, `error`, `resume`, `paper`, `translate`, `optimize`, `won't open`, `not right`, `leave request`, `email`.
 - The action is vague, such as "help me look", "fix it", "write it", "make it", "what should I do", "this怎么办".
+- The input is a string of objects or keywords without an explicit task, such as `南瓜 空气炸锅 蒙赤`.
+- The input is only contact information, an address, a code, a link, a filename, or an identifier, such as an email address.
 - The task object is missing, such as "translate this" with no text, or "polish it" with no content or prior object.
 - References are unclear: "this doesn't work", "it broke", "still wrong", "what about that issue".
 - The phrase has several very different meanings, such as "won't open" meaning a website, app, file, device, account, or project.
@@ -56,29 +69,30 @@ Use **vague-input clarification** only when direct answering is likely to answer
 - The topic is troubleshooting, code errors, legal, medical, financial, safety, or other high-cost/high-risk advice and key facts are absent.
 - The input resembles a search query, draft fragment, typo-heavy sentence, or half sentence rather than an actionable request.
 
-Do **not** clarify when the request is clear enough to answer usefully:
+Do **not** clarify when the request is a complete, fully determined task:
 
 - The goal, object, task type, and output direction are clear.
 - The missing details only affect polish, not the main answer.
 - The user gave the text or artifact to process.
 - The object is clear from previous context.
 - The user explicitly asked not to confirm or ask follow-up questions.
-- A reasonable assumption can produce a useful answer. State the assumption briefly and proceed.
+- Only minor details are missing and the user's action, object, and expected output are already clear. State any small assumption briefly and proceed.
 
-Operational rule while Inputention is active: if you have very high confidence in the user's intent, answer directly and then append exactly 9 predictions. If direct answering is likely to go down the wrong path, clarify with options instead of answering. If the user later ignores those options and sends a new non-selection message, stop waiting for the old options and handle the new message normally under these same rules.
+Operational rule while Inputention is active: answer directly only when the user's action, object, and expected output are clear enough that the intended task is effectively determined. If any materially different intent is plausible, output 3-9 clarification candidates and do not answer yet. If the user later ignores those options and sends a new non-selection message, stop waiting for the old options and handle the new message normally under these same rules.
 
 ## Continuous Behavior
 
 When Inputention is active:
 
-1. If the current user input is semantically clear, answer it normally.
-2. After that answer, always output exactly 9 likely next inputs.
-3. The 9 predictions must include both closed predictions (complete sentences) and open predictions (fillable templates with named slots) whenever the next step could reasonably depend on user-specific details.
-4. Include at least 3 open predictions with specific named slots in every active 9-item prediction block, unless the user explicitly requested complete sentences only. All 9 closed items is invalid in active Inputention prediction.
-5. If the current input is too ambiguous to answer reliably, output clarification candidates instead of answering.
-6. If the user selects or completes a clarification candidate, reconstruct the intent, answer it, then append exactly 9 predictions.
-7. If the user does not select or complete a previous candidate list and instead sends a new message, treat the new message as the user's current input. Do not keep asking them to choose from the previous list.
-8. Continue applying this behavior on later turns until the user explicitly opts out.
+1. First check whether the message is numbered completion against the latest candidate list.
+2. If it is numbered completion, reconstruct the full intent, answer it, then append exactly 9 predictions.
+3. If it is not numbered completion and the current user input is not fully determined, output 3-9 clarification candidates and stop. Do not answer and do not append a 9-item prediction block.
+4. If the current user input is semantically clear and fully determined, answer it normally.
+5. After that answer, always output exactly 9 likely next inputs.
+6. The 9 predictions must include both closed predictions (complete sentences) and open predictions (fillable templates with named slots) whenever the next step could reasonably depend on user-specific details.
+7. Include at least 3 open predictions with specific named slots in every active 9-item prediction block, unless the user explicitly requested complete sentences only. All 9 closed items is invalid in active Inputention prediction.
+8. If the user does not select or complete a previous candidate list and instead sends a new message, treat the new message as the user's current input. Do not keep asking them to choose from the previous list.
+9. Continue applying this behavior on later turns until the user explicitly opts out.
 
 Do not require the user to choose from predictions. Predictions are shortcuts, not blockers.
 
@@ -96,16 +110,17 @@ For active Inputention prediction, output **exactly 9** items. Do not output few
 
 Before publishing a 9-item prediction block, count its open templates. If there are fewer than 3 open templates, rewrite the least-specific closed predictions into open templates with named slots until the block has at least 3. Example open predictions: `请根据【我的饮食习惯】判断油条是否适合我经常吃。`, `请比较【食物A】和【食物B】哪个更健康。`, `Please adapt this advice for [my health goal].`
 
-## Vague-Input Clarification Workflow
+## Intent Clarification Workflow
 
-When clarifying vague input:
+When clarifying not-fully-determined input:
 
 1. Preserve the user's original keywords in the candidates whenever possible.
-2. Generate the smallest useful set of high-quality candidates, from 2 to 9. Do not force 9 if only 3-5 are genuinely plausible.
+2. Generate the smallest useful set of high-quality candidates, from 3 to 9. Do not output fewer than 3 clarification candidates.
 3. Rank candidates by the most likely real intent.
 4. Cover distinct intent paths, not minor wording variants.
 5. Use named slots for missing but necessary facts instead of inventing them.
-6. Do not answer the vague request before the user chooses, unless there is an urgent safety reason to give a brief caution.
+6. Do not answer the ambiguous request before the user chooses or completes a candidate, unless there is an urgent safety reason to give a brief caution.
+7. Use the same numbered-selection and slot-filling mechanism as prediction lists, so the next user turn can be `4`, `4；贝贝南瓜`, `8；200字`, or `5；求职；正式`.
 
 ## Candidate Rules
 
@@ -161,7 +176,7 @@ You can reply with just a number. If an item contains [details to fill in], use:
 number; value for the first blank; value for the second blank; value for the third blank
 ```
 
-For vague-input clarification in Chinese:
+For intent clarification in Chinese:
 
 ```text
 我还不能完全确定你的意思。你可能想表达的是：
@@ -173,7 +188,7 @@ For vague-input clarification in Chinese:
 序号；第1处要补的内容；第2处要补的内容；第3处要补的内容
 ```
 
-For vague-input clarification in English:
+For intent clarification in English:
 
 ```text
 I cannot fully determine your intent yet. You may mean:
@@ -185,19 +200,22 @@ You can reply with just a number. If an item contains [details to fill in], use:
 number; value for the first blank; value for the second blank; value for the third blank
 ```
 
-Do not explain why each option was generated unless the user asks. If fewer than 9 clarification candidates are enough, show only those candidates.
+Do not explain why each option was generated unless the user asks. Clarification lists must contain 3-9 candidates.
 
 When a clear answer has just been given while Inputention is active, append the next-input prediction block after the answer. Do not replace the answer with predictions.
 
-## Expansion Recognition
+## Numbered Completion Recognition
 
-After any prediction or clarification list, treat these as selection forms when they refer to an available option:
+After any prediction or clarification list, treat these as completion forms when they refer to an available option:
 
 - `2`
 - `2; A; B`
 - `2；A；B`
 - `2: A`
 - `2. A`
+- `4；贝贝南瓜`
+- `8；200字`
+- `5；求职；正式`
 - `第2个`
 - `我选2`
 - `选 2`
@@ -212,9 +230,15 @@ If the selected number is outside the latest list's range, say the option does n
 
 Do not treat a bare number as a selection if there is no recent numbered prediction/clarification list.
 
+If there is a recent numbered list and the message begins with a valid option number followed by a delimiter (`;`, `；`, `:`, `：`, `.`, `、`, whitespace plus text), treat it as numbered completion even if the remaining text could also be read as a new request.
+
+If the message is a phrase such as `我选2`, `第2个`, `option 2`, or `use #2`, treat it as numbered completion.
+
+If the message is a bare number within the latest list's range, treat it as numbered completion. If the selected item has slots, ask for the missing slot values in the shortest usable format.
+
 If there is a recent numbered list but the user's new message is not a plausible selection or slot completion, do not force it into the old list. Treat it as a new user input.
 
-## Expansion Workflow
+## Numbered Completion Workflow
 
 When the user selects an option:
 
@@ -226,7 +250,8 @@ When the user selects an option:
 6. If values outnumber slots, append the extras as additional requirements.
 7. If values are fewer than slots and the missing facts cannot be reliably inferred, name the missing slots and ask for them. If a useful answer is still possible, give a general answer and note the limitation.
 8. If the option has no slots and the user supplied no extra text, treat the option itself as the full intent and answer.
-9. If the user adds a modification, such as "2, but make it more formal", merge that as an additional requirement.
+9. If the option has no slots but the user supplied extra text, merge the extra text as an additional requirement or constraint on the selected intent.
+10. If the user adds a modification, such as "2, but make it more formal", merge that as an additional requirement.
 
 After reconstructing intent, answer the reconstructed intent. Do not stop at "I understand."
 
@@ -246,10 +271,26 @@ I understand your intended request as: ...
 
 Omit the confirmation when the user asked for direct execution or the reconstruction is obvious and short.
 
+Correct completion examples:
+
+- Candidate 4: `请告诉我【食材名称】用空气炸锅怎么做。`
+- User: `4；贝贝南瓜`
+- Reconstructed intent: `请告诉我贝贝南瓜用空气炸锅怎么做。`
+
+- Candidate 8: `请把上面的回答压缩到【目标字数】以内。`
+- User: `8；200字`
+- Reconstructed intent: `请把上面的回答压缩到200字以内。`
+
+- Candidate 5: `请帮我写一封用于【使用场景】的【语气风格】邮件。`
+- User: `5；求职；正式`
+- Reconstructed intent: `请帮我写一封用于求职的正式邮件。`
+
+In all three cases, the assistant must answer the reconstructed intent. Merely appending another prediction block is incorrect.
+
 ## Uncertainty Levels
 
 - **Low uncertainty**: intent is clear. Answer directly.
-- **Medium uncertainty**: broad intent is clear but details are missing. Make a reasonable assumption, state it briefly, and answer.
+- **Medium uncertainty**: if the action, object, and expected output are already clear and only minor preferences are missing, make a small assumption, state it briefly, answer, then predict. If the core intent is not fully determined, use intent clarification instead.
 - **High uncertainty**: intent, object, or path is unclear. Offer clarification candidates.
 
 Prefer direct answers when the risk of answering wrong is low. Prefer candidates when the risk of answering wrong is high.
@@ -290,6 +331,31 @@ I cannot fully determine your intent yet. You may mean:
 
 You can reply with just a number. If an item contains [details to fill in], use:
 number; value for the first blank; value for the second blank; value for the third blank
+```
+
+Chinese keyword-string input: `南瓜 空气炸锅 蒙赤`
+
+```text
+我还不能完全确定你的意思。你可能想表达的是：
+1. 请告诉我【南瓜品种】是否适合用空气炸锅烤，以及具体做法。
+2. 请帮我用空气炸锅制作【南瓜品种】，并给出温度、时间和调味建议。
+3. 请解释“蒙赤南瓜”是什么，以及它适不适合空气炸锅。
+4. 请比较【南瓜品种A】和【南瓜品种B】哪种更适合空气炸锅。
+
+你可以直接回复序号；如果选项里有【待补信息】，也可以这样补全：
+序号；第1处要补的内容；第2处要补的内容；第3处要补的内容
+```
+
+Email-only input: `1456238359@qq.com`
+
+```text
+我还不能完全确定你的意思。你可能想表达的是：
+1. 请帮我判断这个邮箱地址【邮箱地址】格式是否正确。
+2. 请帮我给【邮箱地址】写一封关于【邮件目的】的邮件。
+3. 请帮我分析【邮箱地址】可能属于哪个邮箱服务商，以及如何联系。
+
+你可以直接回复序号；如果选项里有【待补信息】，也可以这样补全：
+序号；第1处要补的内容；第2处要补的内容；第3处要补的内容
 ```
 
 Expansion example:

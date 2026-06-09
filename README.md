@@ -11,7 +11,7 @@ It is especially useful for conversational agents, coding assistants, support wo
 - **One-character activation**: start a message with `?` or `？` to invoke Inputention directly.
 - **Continuous predictions**: once activated, every clear answer is followed by exactly 9 predicted next inputs until the user opts out.
 - **Next-prompt prediction**: generate 9 likely follow-up prompts from the current conversation.
-- **Ambiguous-input clarification**: convert vague, short, or keyword-like input into 2-9 actionable intent candidates.
+- **Intent clarification before answering**: convert vague, short, or keyword-like input into 3-9 actionable intent candidates, then wait for the user's numbered choice before answering.
 - **Numbered replies**: reply with `2`, `2; value A; value B`, `I choose 2`, or `use #2`.
 - **Fillable slots**: fill `[error message]`, `[target style]`, `【报错内容】`, and other named slots left to right.
 - **Less wording pressure**: users can choose or lightly edit a suggested intent instead of worrying about the perfect prompt.
@@ -71,9 +71,9 @@ Behavior:
 - Always outputs exactly 9 predictions in active prediction mode.
 - Must include at least 3 open fillable templates with specific named slots whenever user-specific details could matter.
 
-### 2. Ambiguous-Input Clarification
+### 2. Intent Clarification
 
-Use this when answering directly would likely answer the wrong question.
+Use this when the user input is not a complete, fully determined request. In this mode, Inputention should not answer yet; it should offer 3-9 likely intents and wait for the next turn.
 
 Example triggers:
 
@@ -83,17 +83,20 @@ Example triggers:
 ?translate this
 ?报错了
 ?这个不对
+?南瓜 空气炸锅 蒙赤
+?1456238359@qq.com
 ```
 
 Behavior:
 
 - Preserves the user's original keyword when possible.
-- Generates the smallest useful set of candidates, usually 2-5 and at most 9.
+- Generates the smallest useful set of candidates, at least 3 and at most 9.
 - Uses named fillable slots instead of inventing missing facts.
 - Avoids generic clarification like "What do you mean?" when useful options can be offered.
 - If the user ignores the options and sends a new message, treats the new message as the current request instead of insisting on the old list.
+- Does not append a 9-item prediction block to a clarification list.
 
-### 3. Numbered Intent Expansion
+### 3. Numbered Intent Completion
 
 Use this after Inputention has produced a numbered list.
 
@@ -104,6 +107,9 @@ Supported replies include:
 2; A; B
 2；A；B
 2: A
+4；贝贝南瓜
+8；200字
+5；求职；正式
 第2个
 我选2
 option 2
@@ -121,6 +127,8 @@ Behavior:
 - Asks for missing values only when they are necessary.
 - Answers the reconstructed request.
 - If Inputention is active, appends exactly 9 likely next inputs after the answer.
+
+This is the actual completion feature: the assistant must reconstruct the selected option and answer it. It should not treat `4；贝贝南瓜` or `8；200字` as a fresh unrelated prompt, and it should not respond with predictions only.
 
 ## Quick Start
 
@@ -177,10 +185,11 @@ Rules:
 - `?` by itself predicts likely next inputs from the current conversation.
 - If the text after `?` is already clear, the assistant answers it first and then appends exactly 9 likely next inputs.
 - If the user does not choose from a previous prediction or clarification list, the assistant treats the next message as a new request and continues Inputention behavior.
+- If the user starts with a valid option number and provides details, such as `4；贝贝南瓜`, the assistant completes the latest matching option before doing anything else.
 
 ## Output Examples
 
-### English Ambiguous Input
+### English Intent Clarification
 
 ```text
 User: ?won't open
@@ -270,7 +279,7 @@ Inputention follows a simple decision rule:
 - If Inputention is not active and the user is clear, answer directly.
 - If the user explicitly starts with `?` or `？`, activate continuous Inputention behavior.
 - If Inputention is active and the user is clear, answer directly and append exactly 9 next-input predictions.
-- If the user is unclear and a direct answer would likely drift, offer ranked intent candidates.
+- If the user is unclear or not fully determined, offer 3-9 ranked intent candidates and wait for the user to choose or complete one.
 - If the user selects a candidate, reconstruct the request and complete it.
 - If the user ignores a candidate list and sends a new message, handle the new message instead of repeatedly asking them to choose.
 
