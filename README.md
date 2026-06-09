@@ -1,101 +1,97 @@
-# Predict Next Inputs
+# Inputention
 
-`predict-next-inputs` is a Codex skill for predicting likely next user inputs, clarifying vague requests, and expanding numbered replies into complete actionable intent.
+> Intent autocomplete for AI conversations. Predict likely next prompts, clarify ambiguous input, and turn numbered replies into complete requests.
 
-It is designed to reduce user typing, prevent answers from drifting away from the user's real goal, and keep multi-turn conversations moving smoothly.
+Inputention is a Codex skill that helps users communicate faster with AI assistants. It turns "what I might type next" or "I only typed a vague keyword" into ranked, selectable, natural-language options. Users can then reply with a number, optionally add a few details, and the assistant reconstructs the full intent before answering.
 
-## What This Skill Does
+It is especially useful for conversational agents, coding assistants, support workflows, research assistants, and any AI surface where users often type fragments such as `error`, `VPN`, `won't open`, `translate this`, or `fix it`.
 
-This skill has three core capabilities:
+## Highlights
 
-1. **Predict next inputs**
+- **One-character activation**: start a message with `?` or `？` to invoke Inputention directly.
+- **Next-prompt prediction**: generate 9 likely follow-up prompts from the current conversation.
+- **Ambiguous-input clarification**: convert vague, short, or keyword-like input into 2-9 actionable intent candidates.
+- **Numbered replies**: reply with `2`, `2; value A; value B`, `I choose 2`, or `use #2`.
+- **Placeholder filling**: fill `[error message]`, `[target style]`, `【报错内容】`, and other placeholders left to right.
+- **Multilingual by design**: Chinese/CJK contexts use `【...】`; English and most other languages use `[...]`.
+- **Low-friction UX**: the assistant answers directly when intent is clear, and asks through options only when guessing would be risky.
 
-   When the user asks what they are likely to ask next, the skill generates 9 likely next inputs based on the current conversation.
+## Why Inputention?
 
-2. **Clarify vague input**
+Most AI conversations lose momentum in two places:
 
-   When the user sends a short, ambiguous, keyword-like, or incomplete request, the skill generates 2-9 likely full-intent candidates instead of guessing and answering the wrong question.
+1. The user knows the direction but does not want to type a full prompt.
+2. The user types a fragment, and the assistant guesses the wrong task.
 
-3. **Expand numbered replies**
-
-   When the user replies with a number, optionally followed by details, the skill fills placeholders in the chosen option, reconstructs the user's full intent, and then answers that reconstructed request.
-
-## Typical Use Cases
-
-Use this skill when a user wants to reduce typing or when their input is too vague to answer reliably.
-
-Examples:
-
-- The user asks: "Predict what I may ask next."
-- The user asks: "Give me 9 possible next inputs."
-- The user says: "VPN"
-- The user says: "报错了"
-- The user says: "won't open"
-- The user says: "translate this" but provides no text.
-- The user replies: `2; Python script; ModuleNotFoundError: No module named pandas`
-- The user replies: `I choose 3`
-
-## Installation Location
-
-The skill is installed here:
+Inputention solves both by making intent selection lightweight:
 
 ```text
-C:\Users\mmrgr\.codex\skills\predict-next-inputs
+User: ?报错了
+
+Assistant:
+我还不能完全确定你的意思。你可能想表达的是：
+1. 我在运行【软件/代码/命令】时出现报错：【报错内容】，请帮我分析原因。
+2. 我使用的是【系统/环境】，在执行【具体操作】时出现【报错现象】，请帮我排查。
+3. 请根据这个报错【报错内容】告诉我最可能的原因和解决方法。
+4. 我不懂这个报错是什么意思，请用简单的话解释【报错内容】。
+
+User: 1；Python 脚本；ModuleNotFoundError: No module named pandas
+
+Assistant:
+我将你的输入理解为：我在运行 Python 脚本时出现报错：ModuleNotFoundError: No module named pandas，请帮我分析原因。
+...
 ```
 
-Main files:
+## Core Modes
+
+### 1. Next-Prompt Prediction
+
+Use this when the user explicitly asks for likely next inputs.
+
+Example triggers:
 
 ```text
-predict-next-inputs/
-├── SKILL.md
-├── README.md
-└── agents/
-    └── openai.yaml
+Predict my most likely next inputs.
+Give me 9 possible follow-up prompts.
+请预测我接下来最可能输入的 9 句话。
+?
+？
 ```
 
-`SKILL.md` contains the operational rules that Codex loads when the skill is triggered.
+Behavior:
 
-`agents/openai.yaml` contains UI-facing metadata such as display name, short description, default prompt, and implicit invocation policy.
+- Reads the current conversation.
+- Infers the user's stage, such as understanding, design, revision, correction, execution, comparison, extension, or validation.
+- Generates internal candidates.
+- Selects and ranks the best 9.
+- Outputs complete prompts the user can copy or select by number.
 
-## Core Concepts
+### 2. Ambiguous-Input Clarification
 
-### Next-Input Prediction
+Use this when answering directly would likely answer the wrong question.
 
-This mode is used when the user explicitly asks the assistant to predict possible follow-up inputs.
+Example triggers:
 
-The skill should:
+```text
+?VPN
+?won't open
+?translate this
+?报错了
+?这个不对
+```
 
-- Inspect the current conversation.
-- Infer the user's current stage, such as understanding, design, revision, correction, execution, comparison, extension, or verification.
-- Generate at least 12 internal candidates.
-- Select the best 9.
-- Sort them from most likely to less likely.
-- Output exactly 9 items unless the user asks for a different number.
+Behavior:
 
-This mode is proactive and task-continuation oriented.
+- Preserves the user's original keyword when possible.
+- Generates the smallest useful set of candidates, usually 2-5 and at most 9.
+- Uses placeholders instead of inventing missing facts.
+- Avoids generic clarification like "What do you mean?" when useful options can be offered.
 
-### Vague-Input Clarification
+### 3. Numbered Intent Expansion
 
-This mode is used when directly answering would likely answer the wrong question.
+Use this after Inputention has produced a numbered list.
 
-The skill should offer likely complete meanings rather than ask a generic question like "What do you mean?"
-
-It is triggered by inputs such as:
-
-- Keywords: `VPN`, `resume`, `paper`, `email`, `translate`, `optimize`
-- Vague actions: "fix it", "help me look", "write it", "what should I do"
-- Missing task object: "translate this" without text
-- Unclear reference: "this is wrong", "it broke", "that issue"
-- Multi-meaning phrases: "won't open", "not working", "can't connect"
-- High-risk or high-cost domains with missing facts
-
-Unlike prediction mode, clarification mode does not have to output 9 items. It should output the smallest useful set, usually 2-5, and at most 9.
-
-### Numbered Expansion
-
-This mode is used after the assistant has produced a numbered prediction or clarification list.
-
-The user may reply with:
+Supported replies include:
 
 ```text
 2
@@ -110,183 +106,115 @@ use #2
 go with the second one
 ```
 
-The skill then:
+Behavior:
 
-1. Finds the latest numbered option list.
-2. Retrieves the selected item.
-3. Extracts placeholders from left to right.
-4. Fills placeholders using the user's supplied values.
-5. Appends extra values as additional requirements.
-6. Asks for missing required values only when they cannot be inferred and are needed.
-7. Answers the reconstructed full request.
+- Selects the matching option from the latest Inputention list.
+- Extracts placeholders from left to right.
+- Fills values in order.
+- Appends extra values as additional requirements.
+- Asks for missing values only when they are necessary.
+- Answers the reconstructed request.
 
-## Language Support
+## Quick Start
 
-The skill is multilingual.
+Place this repository as a Codex skill folder, or copy `SKILL.md` into a Codex skill directory.
 
-It should use the user's primary language for:
-
-- Headings
-- Candidate options
-- Placeholder names
-- Confirmation text
-- Final answers
-
-For Chinese, Japanese, or mixed CJK contexts, placeholders should use Chinese corner brackets:
+Current project path:
 
 ```text
-【报错内容】
-【需要翻译的文本】
-【目标风格】
+D:\my   github\inputention
 ```
 
-For English and most other languages, placeholders should use square brackets:
+Typical Codex skill layout:
 
 ```text
-[error message]
-[text to translate]
-[target style]
+inputention/
+├── agents/
+│   └── openai.yaml
+├── SKILL.md
+├── README.md
+└── README_CN.md
 ```
 
-Expansion mode must recognize both placeholder styles.
+The Codex skill name is `inputention`, so it can also be invoked explicitly as `$inputention` in environments that support named skill invocation.
 
-## Trigger Rules
+The skill's trigger logic lives in the frontmatter `description`, `agents/openai.yaml`, and the mode-selection rules inside `SKILL.md`.
 
-### Trigger Prediction Mode
+## Explicit `?` Trigger
 
-Use prediction mode when the user asks for:
+Inputention is designed to be easy to invoke.
 
-- likely next inputs
-- possible follow-up questions
-- 9 next questions
-- next prompt suggestions
-- reduced typing via numbered choices
+If the **very first character** of the user's message is `?` or `？`, the assistant should use this skill.
 
-Example:
+You can also invoke it by name with `$inputention` when your Codex environment supports explicit skill invocation.
+
+Examples:
 
 ```text
-请你预测我接下来最可能问的 9 个问题。
+?报错了
+？打不开
+?won't open
+?email
+?predict my next inputs
+?
 ```
 
-Example:
+The leading question mark is treated as an invocation prefix, not as part of the actual request.
+
+Rules:
+
+- `?报错了` runs ambiguous-input clarification on `报错了`.
+- `?predict my next inputs` runs next-prompt prediction.
+- `?` by itself predicts likely next inputs from the current conversation.
+- If the text after `?` is already clear, the prefix still forces Inputention-style options instead of bypassing the skill.
+
+## Output Examples
+
+### English Ambiguous Input
 
 ```text
-Predict my most likely next inputs.
-```
+User: ?won't open
 
-### Trigger Clarification Mode
-
-Use clarification mode when the user input has high uncertainty.
-
-High uncertainty means:
-
-- The object is missing.
-- The task type is unclear.
-- Several interpretations are plausible.
-- Direct answering would likely go down the wrong path.
-- The answer depends on missing high-impact facts.
-
-Example:
-
-```text
-打不开
-```
-
-Example:
-
-```text
-won't open
-```
-
-### Do Not Trigger Clarification Mode
-
-Do not clarify when the request is already clear enough.
-
-Example:
-
-```text
-帮我写一封向老师请病假的邮件。
-```
-
-The assistant should write the email directly.
-
-Example:
-
-```text
-Translate this into English: 我今天身体不舒服，想请一天假。
-```
-
-The assistant should translate directly.
-
-If the request has a small gap but a useful answer is still possible, make a reasonable assumption and proceed.
-
-## Output Formats
-
-### Chinese Prediction Output
-
-```text
-我预测你接下来最可能输入的是：
-1. ...
-2. ...
-3. ...
-4. ...
-5. ...
-6. ...
-7. ...
-8. ...
-9. ...
-
-你可以直接回复序号，也可以用这种格式补全占位符：
-序号；占位符1的内容；占位符2的内容；占位符3的内容
-```
-
-### English Prediction Output
-
-```text
-I predict your most likely next inputs are:
-1. ...
-2. ...
-3. ...
-4. ...
-5. ...
-6. ...
-7. ...
-8. ...
-9. ...
-
-You can reply with just a number, or fill placeholders like this:
-number; value for placeholder 1; value for placeholder 2; value for placeholder 3
-```
-
-### Chinese Clarification Output
-
-```text
-我还不能完全确定你的意思。你可能想表达的是：
-1. ...
-2. ...
-3. ...
-
-你可以直接回复序号；如果选项里有占位符，也可以按这个格式补全：
-序号；占位符1的内容；占位符2的内容；占位符3的内容
-```
-
-### English Clarification Output
-
-```text
+Assistant:
 I cannot fully determine your intent yet. You may mean:
-1. ...
-2. ...
-3. ...
+1. I cannot open [website/app/file/device], please help me troubleshoot the cause.
+2. When I try to open [target item] on [device or operating system], I see [specific symptom], please help me diagnose it.
+3. [target item] used to open but no longer opens, please list the likely causes and steps to fix it.
+4. When I open [target item], it shows [error message], please help me understand and fix it.
 
 You can reply with just a number, or fill placeholders like this:
 number; value for placeholder 1; value for placeholder 2; value for placeholder 3
 ```
 
-## Placeholder Rules
+### English Numbered Expansion
 
-Placeholders should be specific, fillable, and natural in the current language.
+```text
+User: 1; a PDF file; it says the file is damaged
 
-Good Chinese placeholders:
+Assistant:
+I understand your intended request as: I cannot open a PDF file, please help me troubleshoot the cause. Additional requirement: it says the file is damaged.
+...
+```
+
+### Chinese Next-Prompt Prediction
+
+```text
+User: ?
+
+Assistant:
+我预测你接下来最可能输入的是：
+1. 请把这个方案整理成可以直接复制到 SKILL.md 的版本。
+2. 请给我一个用户选择序号并补全占位符的完整示例。
+3. 请说明这个 skill 在英文场景下应该如何输出。
+...
+9. 请帮我检查这套规则是否存在容易误触发或漏触发的问题。
+```
+
+## Placeholder Conventions
+
+Use placeholders only for missing information that the assistant should not invent.
+
+Recommended Chinese placeholders:
 
 ```text
 【报错内容】
@@ -297,9 +225,10 @@ Good Chinese placeholders:
 【目标风格】
 【具体现象】
 【已尝试的方法】
+【最终产物类型】
 ```
 
-Good English placeholders:
+Recommended English placeholders:
 
 ```text
 [error message]
@@ -310,6 +239,7 @@ Good English placeholders:
 [target style]
 [specific symptom]
 [steps already tried]
+[final artifact type]
 ```
 
 Avoid vague placeholders:
@@ -323,130 +253,66 @@ Avoid vague placeholders:
 [stuff]
 ```
 
-Most candidates should use 1-4 placeholders. Too many placeholders increase user effort and make the option harder to choose.
+## Design Principles
 
-## Expansion Examples
+Inputention follows a simple decision rule:
 
-### Chinese Example
+- If the user is clear, answer directly.
+- If the user explicitly starts with `?` or `？`, use Inputention.
+- If the user is unclear and a direct answer would likely drift, offer ranked intent candidates.
+- If the user selects a candidate, reconstruct the request and complete it.
 
-Assistant option:
+Candidates should be:
 
-```text
-1. 我在运行【软件/代码/命令】时出现报错：【报错内容】，请帮我分析原因。
-```
+- Complete natural-language requests.
+- Ranked by likelihood.
+- Distinct from one another.
+- Grounded in the current conversation.
+- Free of unsupported private assumptions.
+- Ready to execute after selection.
 
-User reply:
+## Safety Notes
 
-```text
-1；Python 脚本；ModuleNotFoundError: No module named pandas
-```
+Inputention must not turn guesses into facts.
 
-Reconstructed intent:
-
-```text
-我在运行 Python 脚本时出现报错：ModuleNotFoundError: No module named pandas，请帮我分析原因。
-```
-
-The assistant should then explain that `pandas` is missing and provide installation/debugging steps.
-
-### English Example
-
-Assistant option:
-
-```text
-1. I cannot open [website/app/file/device], please help me troubleshoot the cause.
-```
-
-User reply:
-
-```text
-1; a PDF file; it says the file is damaged
-```
-
-Reconstructed intent:
-
-```text
-I cannot open a PDF file, please help me troubleshoot the cause. Additional requirement: it says the file is damaged.
-```
-
-The assistant should then give PDF repair and verification steps.
-
-## Candidate Quality Standards
-
-Every candidate should:
-
-- Be a complete sentence.
-- Sound like something a real user might type.
-- Preserve the user's original keyword when useful.
-- Be directly actionable after selection.
-- Avoid unsupported facts or private assumptions.
-- Be distinct from the other candidates.
-- Be sorted by likelihood.
-- Use precise placeholders when information is missing.
-
-Candidates should not:
-
-- Be labels such as "translation request" or "debugging".
-- Repeat the same intent with tiny wording changes.
-- Invent sensitive background details.
-- Turn guesses into facts.
-- Force 9 items in vague-input clarification mode when fewer options are better.
-
-## Safety and Accuracy Rules
-
-The skill must avoid overconfident interpretation.
-
-For example, if the user says:
+For example, if a user says:
 
 ```text
 my boss didn't reply
 ```
 
-Do not create a candidate like:
+Do not generate:
 
 ```text
-My boss is deliberately ignoring me, what should I do?
+My boss is deliberately ignoring me. What should I do?
 ```
 
-Use a neutral candidate:
+Prefer:
 
 ```text
 My boss has not replied to [message/request], please help me decide how to follow up.
 ```
 
-For medical, legal, financial, security, crisis, or other high-stakes topics, the skill should clarify missing facts when necessary and avoid definitive conclusions from vague input.
+For medical, legal, financial, security, crisis, or other high-stakes domains, Inputention should clarify missing facts and avoid definitive conclusions from vague input.
 
-If the reconstructed request involves facts that may have changed recently, the assistant should follow the active system instructions for higher-accuracy work, including source checking or web browsing when required.
+## Validation
 
-## Maintenance Notes
-
-When updating this skill:
-
-1. Keep `SKILL.md` concise enough to load efficiently.
-2. Preserve all three modes unless intentionally redesigning the skill:
-   - next-input prediction
-   - vague-input clarification
-   - numbered expansion
-3. Keep multilingual behavior explicit.
-4. Add examples only when they teach a new edge case.
-5. Avoid adding large fixed template libraries that make the skill mechanical.
-6. Validate the skill after edits with the skill validation script.
-
-Recommended validation command:
+Validate the skill after editing:
 
 ```powershell
 $env:PYTHONUTF8='1'
-python C:\Users\mmrgr\.codex\skills\.system\skill-creator\scripts\quick_validate.py C:\Users\mmrgr\.codex\skills\predict-next-inputs
+python C:\Users\mmrgr\.codex\skills\.system\skill-creator\scripts\quick_validate.py "D:\my   github\inputention"
 ```
 
-If the default Python environment lacks `PyYAML`, use an environment that includes it or install it temporarily for validation.
+If the active Python environment does not include `PyYAML`, use another environment or install it temporarily for validation.
 
-## Design Principle
+## Roadmap Ideas
 
-The skill should not replace the user's judgment. It should make likely intent easier to express.
+- Add packaged install metadata for one-click Codex installation.
+- Add a small test corpus for trigger behavior.
+- Add locale-specific examples for Japanese, Spanish, and other languages.
+- Add regression tests for numbered expansion and placeholder filling.
 
-When the user's intent is clear, answer directly.
+## License
 
-When the user's intent is unclear but recoverable, offer high-quality numbered candidates.
-
-When the user selects a candidate, reconstruct the request and complete the task.
+No license has been specified yet. Add one before publishing this repository publicly.

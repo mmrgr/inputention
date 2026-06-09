@@ -1,6 +1,6 @@
 ---
-name: predict-next-inputs
-description: Predict and display likely next user inputs, clarify vague or incomplete user inputs by offering numbered full-intent candidates, and expand numbered replies into complete user intent before answering. Use when the user asks to predict likely next questions, generate nine possible follow-up inputs, reduce typing by choosing numbered options, clarify a short/ambiguous keyword-like request, or when the user replies with a number to select a recent prediction or clarification candidate.
+name: inputention
+description: Predict and display likely next user inputs, clarify vague or incomplete user inputs by offering numbered full-intent candidates, and expand numbered replies into complete user intent before answering. Use immediately whenever the very first character of the user's message is "?" or "？"; also use when the user asks to predict likely next questions, generate nine possible follow-up inputs, reduce typing by choosing numbered options, clarify a short/ambiguous keyword-like request, or replies with a number to select a recent prediction or clarification candidate.
 ---
 
 # Predict Next Inputs
@@ -12,6 +12,20 @@ This skill has three modes:
 - **Next-input prediction**: Predict what the user may ask next after the current conversation.
 - **Vague-input clarification**: When the user's input is too short, ambiguous, keyword-like, missing an object, or likely to be misread, offer likely complete intents instead of guessing.
 - **Numbered expansion**: When the user selects a numbered option and optionally supplies details, reconstruct the full intent and answer it.
+
+## Explicit Trigger Prefix
+
+If the very first character of the user's message is `?` or `？`, always use this skill.
+
+Treat the leading question mark as an invocation prefix, not as part of the user's substantive request:
+
+- If text remains after the prefix, apply this skill to that remaining text.
+- If the remaining text asks for next-input prediction, run next-input prediction.
+- If the remaining text is short, ambiguous, keyword-like, or incomplete, run vague-input clarification.
+- If the remaining text is already clear, still honor the explicit prefix by offering likely intent candidates or follow-up inputs instead of silently bypassing the skill.
+- If no text remains after the prefix, run next-input prediction from the current conversation context.
+
+Examples: `?报错了`, `？打不开`, `?won't open`, `?predict my next inputs`.
 
 ## Language Policy
 
@@ -26,7 +40,7 @@ For placeholders:
 
 ## Mode Selection
 
-Use **next-input prediction** when the user explicitly asks for likely next inputs, possible follow-up questions, nine options, "predict what I will ask next", "what might I ask next", or asks to use this skill.
+Use **next-input prediction** when the user explicitly asks for likely next inputs, possible follow-up questions, nine options, "predict what I will ask next", "what might I ask next", asks to use this skill, or sends only the explicit trigger prefix `?`/`？`.
 
 Use **vague-input clarification** only when direct answering is likely to answer the wrong question. Typical triggers:
 
