@@ -9,6 +9,7 @@ It is especially useful for conversational agents, coding assistants, support wo
 ## Highlights
 
 - **One-character activation**: start a message with `?` or `？` to invoke Inputention directly.
+- **Continuous predictions**: once activated, every clear answer is followed by exactly 9 predicted next inputs until the user opts out.
 - **Next-prompt prediction**: generate 9 likely follow-up prompts from the current conversation.
 - **Ambiguous-input clarification**: convert vague, short, or keyword-like input into 2-9 actionable intent candidates.
 - **Numbered replies**: reply with `2`, `2; value A; value B`, `I choose 2`, or `use #2`.
@@ -46,7 +47,7 @@ Assistant:
 
 ### 1. Next-Prompt Prediction
 
-Use this when the user explicitly asks for likely next inputs.
+Use this when the user explicitly asks for likely next inputs, or after any clear answer while Inputention is active.
 
 Example triggers:
 
@@ -65,6 +66,8 @@ Behavior:
 - Generates internal candidates.
 - Selects and ranks the best 9.
 - Outputs complete prompts the user can copy or select by number.
+- Always outputs exactly 9 predictions in active prediction mode.
+- May mix closed predictions with open fillable templates.
 
 ### 2. Ambiguous-Input Clarification
 
@@ -86,6 +89,7 @@ Behavior:
 - Generates the smallest useful set of candidates, usually 2-5 and at most 9.
 - Uses placeholders instead of inventing missing facts.
 - Avoids generic clarification like "What do you mean?" when useful options can be offered.
+- If the user ignores the options and sends a new message, treats the new message as the current request instead of insisting on the old list.
 
 ### 3. Numbered Intent Expansion
 
@@ -114,6 +118,7 @@ Behavior:
 - Appends extra values as additional requirements.
 - Asks for missing values only when they are necessary.
 - Answers the reconstructed request.
+- If Inputention is active, appends exactly 9 likely next inputs after the answer.
 
 ## Quick Start
 
@@ -148,6 +153,8 @@ If the **very first character** of the user's message is `?` or `？`, the assis
 
 You can also invoke it by name with `$inputention` when your Codex environment supports explicit skill invocation.
 
+After `?` or `？` activates Inputention, the behavior continues on later turns until the user explicitly says to stop, such as "stop predicting", "no more predictions", or "不要再预测".
+
 Examples:
 
 ```text
@@ -166,7 +173,8 @@ Rules:
 - `?报错了` runs ambiguous-input clarification on `报错了`.
 - `?predict my next inputs` runs next-prompt prediction.
 - `?` by itself predicts likely next inputs from the current conversation.
-- If the text after `?` is already clear, the prefix still forces Inputention-style options instead of bypassing the skill.
+- If the text after `?` is already clear, the assistant answers it first and then appends exactly 9 likely next inputs.
+- If the user does not choose from a previous prediction or clarification list, the assistant treats the next message as a new request and continues Inputention behavior.
 
 ## Output Examples
 
@@ -257,10 +265,12 @@ Avoid vague placeholders:
 
 Inputention follows a simple decision rule:
 
-- If the user is clear, answer directly.
-- If the user explicitly starts with `?` or `？`, use Inputention.
+- If Inputention is not active and the user is clear, answer directly.
+- If the user explicitly starts with `?` or `？`, activate continuous Inputention behavior.
+- If Inputention is active and the user is clear, answer directly and append exactly 9 next-input predictions.
 - If the user is unclear and a direct answer would likely drift, offer ranked intent candidates.
 - If the user selects a candidate, reconstruct the request and complete it.
+- If the user ignores a candidate list and sends a new message, handle the new message instead of repeatedly asking them to choose.
 
 Candidates should be:
 

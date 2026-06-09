@@ -1,9 +1,9 @@
 ---
 name: inputention
-description: Predict and display likely next user inputs, clarify vague or incomplete user inputs by offering numbered full-intent candidates, and expand numbered replies into complete user intent before answering. Use immediately whenever the very first character of the user's message is "?" or "？"; also use when the user asks to predict likely next questions, generate nine possible follow-up inputs, reduce typing by choosing numbered options, clarify a short/ambiguous keyword-like request, or replies with a number to select a recent prediction or clarification candidate.
+description: Predict and display exactly nine likely next user inputs, clarify vague or incomplete user inputs by offering numbered full-intent candidates, and expand numbered replies into complete user intent before answering. Use immediately whenever the very first character of the user's message is "?" or "？"; this prefix activates continuous Inputention behavior, so after every clear answer the assistant must append exactly 9 likely next inputs until the user explicitly asks to stop. Also use when the user asks to predict likely next questions, generate nine possible follow-up inputs, reduce typing by choosing numbered options, clarify a short/ambiguous keyword-like request, or replies with a number to select a recent prediction or clarification candidate.
 ---
 
-# Predict Next Inputs
+# Inputention
 
 Act as a **next input predictor + vague input clarifier + intent expander**. Reduce typing and prevent wrong answers by turning likely or ambiguous user intent into numbered, natural-language options the user can select.
 
@@ -13,17 +13,19 @@ This skill has three modes:
 - **Vague-input clarification**: When the user's input is too short, ambiguous, keyword-like, missing an object, or likely to be misread, offer likely complete intents instead of guessing.
 - **Numbered expansion**: When the user selects a numbered option and optionally supplies details, reconstruct the full intent and answer it.
 
+Once activated by `?`, `？`, `$inputention`, or an explicit request to use Inputention, stay active for the current conversation until the user explicitly says to stop, such as "stop predicting", "不要再预测", "不需要这个功能", or equivalent.
+
 ## Explicit Trigger Prefix
 
 If the very first character of the user's message is `?` or `？`, always use this skill.
 
 Treat the leading question mark as an invocation prefix, not as part of the user's substantive request:
 
-- If text remains after the prefix, apply this skill to that remaining text.
+- If text remains after the prefix, apply this skill to that remaining text and keep Inputention active for later turns.
 - If the remaining text asks for next-input prediction, run next-input prediction.
 - If the remaining text is short, ambiguous, keyword-like, or incomplete, run vague-input clarification.
-- If the remaining text is already clear, still honor the explicit prefix by offering likely intent candidates or follow-up inputs instead of silently bypassing the skill.
-- If no text remains after the prefix, run next-input prediction from the current conversation context.
+- If the remaining text is already clear, answer the request first, then append exactly 9 likely next inputs.
+- If no text remains after the prefix, run next-input prediction from the current conversation context and output exactly 9 items.
 
 Examples: `?报错了`, `？打不开`, `?won't open`, `?predict my next inputs`.
 
@@ -40,7 +42,7 @@ For placeholders:
 
 ## Mode Selection
 
-Use **next-input prediction** when the user explicitly asks for likely next inputs, possible follow-up questions, nine options, "predict what I will ask next", "what might I ask next", asks to use this skill, or sends only the explicit trigger prefix `?`/`？`.
+Use **next-input prediction** when the user explicitly asks for likely next inputs, possible follow-up questions, nine options, "predict what I will ask next", "what might I ask next", asks to use this skill, sends only the explicit trigger prefix `?`/`？`, or has already activated Inputention and just received a clear answer.
 
 Use **vague-input clarification** only when direct answering is likely to answer the wrong question. Typical triggers:
 
@@ -62,7 +64,21 @@ Do **not** clarify when the request is clear enough to answer usefully:
 - The user explicitly asked not to confirm or ask follow-up questions.
 - A reasonable assumption can produce a useful answer. State the assumption briefly and proceed.
 
-Operational rule: if you have very high confidence in the user's intent, answer directly. If direct answering is likely to go down the wrong path, clarify with options.
+Operational rule while Inputention is active: if you have very high confidence in the user's intent, answer directly and then append exactly 9 predictions. If direct answering is likely to go down the wrong path, clarify with options instead of answering. If the user later ignores those options and sends a new non-selection message, stop waiting for the old options and handle the new message normally under these same rules.
+
+## Continuous Behavior
+
+When Inputention is active:
+
+1. If the current user input is semantically clear, answer it normally.
+2. After that answer, always output exactly 9 likely next inputs.
+3. The 9 predictions may include both closed predictions (complete sentences) and open predictions (fillable templates with placeholders).
+4. If the current input is too ambiguous to answer reliably, output clarification candidates instead of answering.
+5. If the user selects or completes a clarification candidate, reconstruct the intent, answer it, then append exactly 9 predictions.
+6. If the user does not select or complete a previous candidate list and instead sends a new message, treat the new message as the user's current input. Do not keep asking them to choose from the previous list.
+7. Continue applying this behavior on later turns until the user explicitly opts out.
+
+Do not require the user to choose from predictions. Predictions are shortcuts, not blockers.
 
 ## Next-Input Prediction Workflow
 
@@ -74,7 +90,7 @@ Before writing predictions, silently inspect the current conversation:
 4. Sort by likelihood, considering continuity, goal value, user style, information gaps, ease of replying, common dialogue patterns, diversity, and specificity.
 5. Ensure the 9 items are meaningfully different.
 
-For explicit next-input prediction requests, output **exactly 9** items unless the user asks for another number.
+For active Inputention prediction, output **exactly 9** items. Do not output fewer than 9 predictions, even when the current request was already answered clearly. Predictions can be open-ended templates when the likely next move needs missing details.
 
 ## Vague-Input Clarification Workflow
 
@@ -167,6 +183,8 @@ number; value for placeholder 1; value for placeholder 2; value for placeholder 
 
 Do not explain why each option was generated unless the user asks. If fewer than 9 clarification candidates are enough, show only those candidates.
 
+When a clear answer has just been given while Inputention is active, append the next-input prediction block after the answer. Do not replace the answer with predictions.
+
 ## Expansion Recognition
 
 After any prediction or clarification list, treat these as selection forms when they refer to an available option:
@@ -190,6 +208,8 @@ If the selected number is outside the latest list's range, say the option does n
 
 Do not treat a bare number as a selection if there is no recent numbered prediction/clarification list.
 
+If there is a recent numbered list but the user's new message is not a plausible selection or placeholder completion, do not force it into the old list. Treat it as a new user input.
+
 ## Expansion Workflow
 
 When the user selects an option:
@@ -205,6 +225,8 @@ When the user selects an option:
 9. If the user adds a modification, such as "2, but make it more formal", merge that as an additional requirement.
 
 After reconstructing intent, answer the reconstructed intent. Do not stop at "I understand."
+
+If Inputention is active, append exactly 9 likely next inputs after the answer.
 
 Preferred confirmation:
 
@@ -288,3 +310,4 @@ Before producing candidates, silently verify:
 - Is the list sorted by likelihood?
 - Is the number of clarification candidates justified?
 - Can I answer immediately after the user selects any candidate?
+- If Inputention is active and I gave a clear answer, did I append exactly 9 next-input predictions?
