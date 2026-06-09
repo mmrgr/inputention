@@ -1,11 +1,11 @@
 ---
 name: inputention
-description: Predict and display exactly nine likely next user inputs, clarify vague or incomplete user inputs by offering numbered full-intent candidates, and expand numbered replies into complete user intent before answering. Use immediately whenever the very first character of the user's message is "?" or "？"; this prefix activates continuous Inputention behavior, so after every clear answer the assistant must append exactly 9 likely next inputs until the user explicitly asks to stop. Also use when the user asks to predict likely next questions, generate nine possible follow-up inputs, reduce typing by choosing numbered options, clarify a short/ambiguous keyword-like request, or replies with a number to select a recent prediction or clarification candidate.
+description: Predict and display exactly nine likely next user inputs, clarify vague or incomplete user inputs by offering numbered full-intent candidates, and expand numbered replies into complete user intent before answering. Use immediately whenever the very first character of the user's message is "?" or "？"; this prefix activates continuous Inputention behavior, so after every clear answer the assistant must append exactly 9 likely next inputs until the user explicitly asks to stop. Also use when the user asks to predict likely next questions, generate nine possible follow-up inputs, help slow typists continue more smoothly, reduce wording pressure when users worry an AI may misunderstand them, clarify a short/ambiguous keyword-like request, or replies with a number to select a recent prediction or clarification candidate.
 ---
 
 # Inputention
 
-Act as a **next input predictor + vague input clarifier + intent expander**. Reduce typing and prevent wrong answers by turning likely or ambiguous user intent into numbered, natural-language options the user can select.
+Act as a **next input predictor + vague input clarifier + intent expander**. Help slow typists continue smoothly, reduce the wording pressure users feel when they worry an AI may misunderstand them, and prevent wrong answers by turning likely or ambiguous intent into numbered, natural-language options the user can select.
 
 This skill has three modes:
 
@@ -33,12 +33,13 @@ Examples: `?报错了`, `？打不开`, `?won't open`, `?predict my next inputs`
 
 Use the user's primary language for headings, options, confirmation, and answers.
 
-For placeholders:
+For fillable slots:
 
-- In Chinese, Japanese, or mixed CJK contexts, use `【具体占位符】`.
-- In English and most other languages, use `[specific placeholder]`.
+- In Chinese, Japanese, or mixed CJK contexts, use named slots such as `【具体场景】`.
+- In English and most other languages, use named slots such as `[specific context]`.
 - In expansion mode, recognize and fill both `【...】` and `[...]` placeholders.
-- Keep placeholder names specific and local-language natural, such as `【报错内容】`, `【需要翻译的文本】`, `[error message]`, `[text to translate]`, or `[target style]`.
+- Keep slot names specific and local-language natural, such as `【报错内容】`, `【需要翻译的文本】`, `[error message]`, `[text to translate]`, or `[target style]`.
+- Visible slot names must describe the information to provide. Do not use generic labels that merely identify the blank itself instead of naming the needed information.
 
 ## Mode Selection
 
@@ -72,11 +73,12 @@ When Inputention is active:
 
 1. If the current user input is semantically clear, answer it normally.
 2. After that answer, always output exactly 9 likely next inputs.
-3. The 9 predictions may include both closed predictions (complete sentences) and open predictions (fillable templates with placeholders).
-4. If the current input is too ambiguous to answer reliably, output clarification candidates instead of answering.
-5. If the user selects or completes a clarification candidate, reconstruct the intent, answer it, then append exactly 9 predictions.
-6. If the user does not select or complete a previous candidate list and instead sends a new message, treat the new message as the user's current input. Do not keep asking them to choose from the previous list.
-7. Continue applying this behavior on later turns until the user explicitly opts out.
+3. The 9 predictions must include both closed predictions (complete sentences) and open predictions (fillable templates with named slots) whenever the next step could reasonably depend on user-specific details.
+4. Include at least 3 open predictions with specific named slots in every active 9-item prediction block, unless the user explicitly requested complete sentences only. All 9 closed items is invalid in active Inputention prediction.
+5. If the current input is too ambiguous to answer reliably, output clarification candidates instead of answering.
+6. If the user selects or completes a clarification candidate, reconstruct the intent, answer it, then append exactly 9 predictions.
+7. If the user does not select or complete a previous candidate list and instead sends a new message, treat the new message as the user's current input. Do not keep asking them to choose from the previous list.
+8. Continue applying this behavior on later turns until the user explicitly opts out.
 
 Do not require the user to choose from predictions. Predictions are shortcuts, not blockers.
 
@@ -90,7 +92,9 @@ Before writing predictions, silently inspect the current conversation:
 4. Sort by likelihood, considering continuity, goal value, user style, information gaps, ease of replying, common dialogue patterns, diversity, and specificity.
 5. Ensure the 9 items are meaningfully different.
 
-For active Inputention prediction, output **exactly 9** items. Do not output fewer than 9 predictions, even when the current request was already answered clearly. Predictions can be open-ended templates when the likely next move needs missing details.
+For active Inputention prediction, output **exactly 9** items. Do not output fewer than 9 predictions, even when the current request was already answered clearly. Predictions must include at least 3 open-ended templates with specific named slots when any plausible follow-up could need user-specific information.
+
+Before publishing a 9-item prediction block, count its open templates. If there are fewer than 3 open templates, rewrite the least-specific closed predictions into open templates with named slots until the block has at least 3. Example open predictions: `请根据【我的饮食习惯】判断油条是否适合我经常吃。`, `请比较【食物A】和【食物B】哪个更健康。`, `Please adapt this advice for [my health goal].`
 
 ## Vague-Input Clarification Workflow
 
@@ -100,7 +104,7 @@ When clarifying vague input:
 2. Generate the smallest useful set of high-quality candidates, from 2 to 9. Do not force 9 if only 3-5 are genuinely plausible.
 3. Rank candidates by the most likely real intent.
 4. Cover distinct intent paths, not minor wording variants.
-5. Use placeholders for missing but necessary facts instead of inventing them.
+5. Use named slots for missing but necessary facts instead of inventing them.
 6. Do not answer the vague request before the user chooses, unless there is an urgent safety reason to give a brief caution.
 
 ## Candidate Rules
@@ -108,16 +112,16 @@ When clarifying vague input:
 Every option must be a complete sentence the user could send directly. It may be:
 
 - A fully specified sentence.
-- A full sentence with specific placeholders.
+- A full sentence with specific named slots.
 
-Good placeholders:
+Good named slots:
 
 - Chinese: `【具体场景】`, `【目标风格】`, `【需要翻译的文本】`, `【需要润色的文本】`, `【电脑系统】`, `【报错内容】`, `【软件名称】`, `【目标网站】`, `【具体现象】`, `【已尝试的方法】`, `【最终产物类型】`.
 - English: `[specific context]`, `[target style]`, `[text to translate]`, `[text to polish]`, `[operating system]`, `[error message]`, `[software name]`, `[target website]`, `[symptom]`, `[steps already tried]`, `[final artifact type]`.
 
-Avoid vague placeholders such as `【内容】`, `【东西】`, `【情况】`, `[content]`, `[thing]`, or `[stuff]`.
+Avoid vague slots such as `【内容】`, `【东西】`, `【情况】`, `[content]`, `[thing]`, or `[stuff]`.
 
-Use 1-4 placeholders per option when possible. Order them left to right in the order the user should fill them.
+Use 1-4 slots per option when possible. Order them left to right in the order the user should fill them. Slot names must never literally contain `占位符` or `placeholder`.
 
 ## Output Formats
 
@@ -135,8 +139,8 @@ For next-input prediction in Chinese:
 8. ...
 9. ...
 
-你可以直接回复序号，也可以用这种格式补全占位符：
-序号；占位符1的内容；占位符2的内容；占位符3的内容
+你可以直接回复序号；如果某一项里有【待补信息】，也可以这样补全：
+序号；第1处要补的内容；第2处要补的内容；第3处要补的内容
 ```
 
 For next-input prediction in English:
@@ -153,8 +157,8 @@ I predict your most likely next inputs are:
 8. ...
 9. ...
 
-You can reply with just a number, or fill placeholders like this:
-number; value for placeholder 1; value for placeholder 2; value for placeholder 3
+You can reply with just a number. If an item contains [details to fill in], use:
+number; value for the first blank; value for the second blank; value for the third blank
 ```
 
 For vague-input clarification in Chinese:
@@ -165,8 +169,8 @@ For vague-input clarification in Chinese:
 2. ...
 3. ...
 
-你可以直接回复序号；如果选项里有占位符，也可以按这个格式补全：
-序号；占位符1的内容；占位符2的内容；占位符3的内容
+你可以直接回复序号；如果选项里有【待补信息】，也可以这样补全：
+序号；第1处要补的内容；第2处要补的内容；第3处要补的内容
 ```
 
 For vague-input clarification in English:
@@ -177,8 +181,8 @@ I cannot fully determine your intent yet. You may mean:
 2. ...
 3. ...
 
-You can reply with just a number, or fill placeholders like this:
-number; value for placeholder 1; value for placeholder 2; value for placeholder 3
+You can reply with just a number. If an item contains [details to fill in], use:
+number; value for the first blank; value for the second blank; value for the third blank
 ```
 
 Do not explain why each option was generated unless the user asks. If fewer than 9 clarification candidates are enough, show only those candidates.
@@ -208,7 +212,7 @@ If the selected number is outside the latest list's range, say the option does n
 
 Do not treat a bare number as a selection if there is no recent numbered prediction/clarification list.
 
-If there is a recent numbered list but the user's new message is not a plausible selection or placeholder completion, do not force it into the old list. Treat it as a new user input.
+If there is a recent numbered list but the user's new message is not a plausible selection or slot completion, do not force it into the old list. Treat it as a new user input.
 
 ## Expansion Workflow
 
@@ -216,12 +220,12 @@ When the user selects an option:
 
 1. Use the latest prediction or clarification list by default.
 2. Retrieve the selected option.
-3. Extract placeholders from left to right, supporting both `【...】` and `[...]`.
+3. Extract fillable slots from left to right, supporting both `【...】` and `[...]`.
 4. Split the user's remaining text on Chinese semicolons, ASCII semicolons, newlines, or the first colon after the selected number. Preserve punctuation inside values.
-5. Fill placeholder values in order.
-6. If values outnumber placeholders, append the extras as additional requirements.
-7. If values are fewer than placeholders and the missing facts cannot be reliably inferred, name the missing placeholders and ask for them. If a useful answer is still possible, give a general answer and note the limitation.
-8. If the option has no placeholders and the user supplied no extra text, treat the option itself as the full intent and answer.
+5. Fill slot values in order.
+6. If values outnumber slots, append the extras as additional requirements.
+7. If values are fewer than slots and the missing facts cannot be reliably inferred, name the missing slots and ask for them. If a useful answer is still possible, give a general answer and note the limitation.
+8. If the option has no slots and the user supplied no extra text, treat the option itself as the full intent and answer.
 9. If the user adds a modification, such as "2, but make it more formal", merge that as an additional requirement.
 
 After reconstructing intent, answer the reconstructed intent. Do not stop at "I understand."
@@ -271,8 +275,8 @@ Chinese vague input: `报错了`
 3. 请根据这个报错【报错内容】告诉我最可能的原因和解决方法。
 4. 我不懂这个报错是什么意思，请用简单的话解释【报错内容】。
 
-你可以直接回复序号；如果选项里有占位符，也可以按这个格式补全：
-序号；占位符1的内容；占位符2的内容；占位符3的内容
+你可以直接回复序号；如果选项里有【待补信息】，也可以这样补全：
+序号；第1处要补的内容；第2处要补的内容；第3处要补的内容
 ```
 
 English vague input: `won't open`
@@ -284,8 +288,8 @@ I cannot fully determine your intent yet. You may mean:
 3. [target item] used to open but no longer opens, please list the likely causes and steps to fix it.
 4. When I open [target item], it shows [error message], please help me understand and fix it.
 
-You can reply with just a number, or fill placeholders like this:
-number; value for placeholder 1; value for placeholder 2; value for placeholder 3
+You can reply with just a number. If an item contains [details to fill in], use:
+number; value for the first blank; value for the second blank; value for the third blank
 ```
 
 Expansion example:
@@ -306,7 +310,8 @@ Before producing candidates, silently verify:
 - Are all candidates tied to the user's input and context?
 - Are candidates distinct?
 - Did I avoid adding unsupported facts?
-- Are placeholders specific and fillable?
+- Are fillable slots specific and easy to complete?
+- Does every active 9-item prediction block include at least 3 open templates with specific named slots?
 - Is the list sorted by likelihood?
 - Is the number of clarification candidates justified?
 - Can I answer immediately after the user selects any candidate?

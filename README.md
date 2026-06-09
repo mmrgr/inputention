@@ -2,7 +2,7 @@
 
 > Intent autocomplete for AI conversations. Predict likely next prompts, clarify ambiguous input, and turn numbered replies into complete requests.
 
-Inputention is a Codex skill that helps users communicate faster with AI assistants. It turns "what I might type next" or "I only typed a vague keyword" into ranked, selectable, natural-language options. Users can then reply with a number, optionally add a few details, and the assistant reconstructs the full intent before answering.
+Inputention is a Codex skill that helps people communicate with AI assistants more smoothly, especially when typing is slow or when they feel pressure to phrase everything "perfectly" so the AI understands them. It turns "what I might type next" or "I only typed a vague keyword" into ranked, selectable, natural-language options. Users can then reply with a number, optionally add a few details, and the assistant reconstructs the full intent before answering.
 
 It is especially useful for conversational agents, coding assistants, support workflows, research assistants, and any AI surface where users often type fragments such as `error`, `VPN`, `won't open`, `translate this`, or `fix it`.
 
@@ -13,18 +13,20 @@ It is especially useful for conversational agents, coding assistants, support wo
 - **Next-prompt prediction**: generate 9 likely follow-up prompts from the current conversation.
 - **Ambiguous-input clarification**: convert vague, short, or keyword-like input into 2-9 actionable intent candidates.
 - **Numbered replies**: reply with `2`, `2; value A; value B`, `I choose 2`, or `use #2`.
-- **Placeholder filling**: fill `[error message]`, `[target style]`, `【报错内容】`, and other placeholders left to right.
+- **Fillable slots**: fill `[error message]`, `[target style]`, `【报错内容】`, and other named slots left to right.
+- **Less wording pressure**: users can choose or lightly edit a suggested intent instead of worrying about the perfect prompt.
 - **Multilingual by design**: Chinese/CJK contexts use `【...】`; English and most other languages use `[...]`.
 - **Low-friction UX**: the assistant answers directly when intent is clear, and asks through options only when guessing would be risky.
 
 ## Why Inputention?
 
-Most AI conversations lose momentum in two places:
+Most AI conversations lose momentum in three places:
 
 1. The user knows the direction but does not want to type a full prompt.
-2. The user types a fragment, and the assistant guesses the wrong task.
+2. The user types slowly and needs a lower-friction way to continue.
+3. The user worries the AI will misunderstand them, so they spend extra effort polishing the wording before sending anything.
 
-Inputention solves both by making intent selection lightweight:
+Inputention solves these frictions by making intent selection lightweight:
 
 ```text
 User: ?报错了
@@ -67,7 +69,7 @@ Behavior:
 - Selects and ranks the best 9.
 - Outputs complete prompts the user can copy or select by number.
 - Always outputs exactly 9 predictions in active prediction mode.
-- May mix closed predictions with open fillable templates.
+- Must include at least 3 open fillable templates with specific named slots whenever user-specific details could matter.
 
 ### 2. Ambiguous-Input Clarification
 
@@ -87,7 +89,7 @@ Behavior:
 
 - Preserves the user's original keyword when possible.
 - Generates the smallest useful set of candidates, usually 2-5 and at most 9.
-- Uses placeholders instead of inventing missing facts.
+- Uses named fillable slots instead of inventing missing facts.
 - Avoids generic clarification like "What do you mean?" when useful options can be offered.
 - If the user ignores the options and sends a new message, treats the new message as the current request instead of insisting on the old list.
 
@@ -113,7 +115,7 @@ go with the second one
 Behavior:
 
 - Selects the matching option from the latest Inputention list.
-- Extracts placeholders from left to right.
+- Extracts fillable slots from left to right.
 - Fills values in order.
 - Appends extra values as additional requirements.
 - Asks for missing values only when they are necessary.
@@ -190,8 +192,8 @@ I cannot fully determine your intent yet. You may mean:
 3. [target item] used to open but no longer opens, please list the likely causes and steps to fix it.
 4. When I open [target item], it shows [error message], please help me understand and fix it.
 
-You can reply with just a number, or fill placeholders like this:
-number; value for placeholder 1; value for placeholder 2; value for placeholder 3
+You can reply with just a number. If an item contains [details to fill in], use:
+number; value for the first blank; value for the second blank; value for the third blank
 ```
 
 ### English Numbered Expansion
@@ -212,17 +214,17 @@ User: ?
 Assistant:
 我预测你接下来最可能输入的是：
 1. 请把这个方案整理成可以直接复制到 SKILL.md 的版本。
-2. 请给我一个用户选择序号并补全占位符的完整示例。
+2. 请给我一个用户选择序号并补全待补信息的完整示例。
 3. 请说明这个 skill 在英文场景下应该如何输出。
 ...
 9. 请帮我检查这套规则是否存在容易误触发或漏触发的问题。
 ```
 
-## Placeholder Conventions
+## Fillable Slot Conventions
 
-Use placeholders only for missing information that the assistant should not invent.
+Use fillable slots only for missing information that the assistant should not invent.
 
-Recommended Chinese placeholders:
+Recommended Chinese slots:
 
 ```text
 【报错内容】
@@ -236,7 +238,7 @@ Recommended Chinese placeholders:
 【最终产物类型】
 ```
 
-Recommended English placeholders:
+Recommended English slots:
 
 ```text
 [error message]
@@ -250,7 +252,7 @@ Recommended English placeholders:
 [final artifact type]
 ```
 
-Avoid vague placeholders:
+Avoid vague slots:
 
 ```text
 【内容】
