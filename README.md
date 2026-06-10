@@ -378,4 +378,4 @@ Inputention includes two lightweight test artifacts:
 
 ## License
 
-No license has been specified yet. Add one before publishing this repository publicly.
+MIT license has been specified yet..
