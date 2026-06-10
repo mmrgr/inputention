@@ -1,6 +1,6 @@
 ---
 name: inputention
-description: 'Predict exactly nine likely next user inputs, clarify vague or incomplete inputs with 3-9 numbered full-intent candidates before answering, and complete numbered replies such as "4; pumpkin", "8；200字", or "5；求职；正式" by filling the selected candidate slots before answering. Use immediately when the first character is "?" or "？"; this activates continuous Inputention behavior: clear complete requests are answered then followed by 9 predictions, while fragmentary or not-fully-determined requests first receive 3-9 clarification candidates. Numbered completion has highest priority when a recent candidate list exists. Also use for likely follow-up inputs, slow typists, wording-pressure reduction, ambiguous keyword-like requests, and numbered selections.'
+description: 'Predict likely next user inputs, clarify vague or incomplete inputs with 3-9 numbered full-intent candidates before answering, and complete numbered replies such as "4; pumpkin", "8；200字", or "5；求职；正式" by filling the selected candidate slots before answering. Use immediately when the first character is "?" or "？"; this activates continuous Inputention behavior: clear complete requests are answered then followed by the current prediction count, default 5, while fragmentary or not-fully-determined requests first receive 3-9 clarification candidates. If the user sends only "??N" or "？？N", set later prediction count to N. Numbered completion has highest priority when a recent candidate list exists.'
 ---
 
 # Inputention
@@ -9,7 +9,7 @@ Act as a **next input predictor + vague input clarifier + intent expander**. Hel
 
 This skill has three modes:
 
-- **Next-input prediction**: Predict what the user may ask next after the current conversation.
+- **Next-input prediction**: Predict what the user may ask next after the current conversation. Default to 5 predictions; allow the user to change this count with a standalone double-question-mark command.
 - **Intent clarification**: When the user's input is too short, ambiguous, keyword-like, missing an action/object, or not fully determined, offer 3-9 likely complete intents instead of guessing or answering.
 - **Numbered completion**: When the user selects a numbered option and optionally supplies details, fill the selected option's slots, reconstruct the full intent, and answer it.
 
@@ -20,11 +20,25 @@ Once activated by `?`, `？`, `$inputention`, or an explicit request to use Inpu
 Apply modes in this order:
 
 1. **Opt-out**: if the user clearly asks to stop Inputention behavior, stop predicting/clarifying after answering that request if needed.
-2. **Numbered completion**: if there is a recent Inputention prediction or clarification list and the current message plausibly selects one of its numbered items, complete that item first. Do not treat the message as a fresh clear request and do not only append predictions.
-3. **Intent clarification**: if the current message is not a complete, fully determined request, offer 3-9 candidate intents and wait for the user's next turn.
-4. **Clear-request answer + prediction**: if the current message is semantically clear, answer it, then append exactly 9 predictions while Inputention is active.
+2. **Prediction count setting**: if the user sends only `??N` or `？？N`, where `N` is an integer from 1 to 9, set the prediction count for later turns to `N` and acknowledge briefly. Do not answer anything else, clarify anything, or append predictions for this setting message.
+3. **Numbered completion**: if there is a recent Inputention prediction or clarification list and the current message plausibly selects one of its numbered items, complete that item first. Do not treat the message as a fresh clear request and do not only append predictions.
+4. **Intent clarification**: if the current message is not a complete, fully determined request, offer 3-9 candidate intents and wait for the user's next turn.
+5. **Clear-request answer + prediction**: if the current message is semantically clear, answer it, then append the current prediction count while Inputention is active.
 
 Numbered completion is the "completion" feature. Intent clarification is the pre-completion step: it prepares selectable candidates for a later completion turn and must not answer the ambiguous input yet.
+
+## Prediction Count
+
+Use a current prediction count for next-input prediction blocks:
+
+- Default prediction count: 5.
+- Valid range: 1-9.
+- The count affects only next-input prediction blocks after clear answers or explicit prediction requests.
+- The count does not affect intent clarification, which must still offer 3-9 candidate intents.
+- A standalone `??3` or `？？3` sets the later prediction count to 3.
+- Accept only messages that contain exactly the two question marks plus the number, with optional surrounding whitespace. Examples: `??3`, `？？3`, `?? 3`, `？？ 3`.
+- If the number is outside 1-9, ask the user to choose a number from 1 to 9.
+- Do not interpret `?3`, `???3`, `？？三`, or `？？3 请继续` as prediction-count settings.
 
 ## Explicit Trigger Prefix
 
@@ -35,8 +49,8 @@ Treat the leading question mark as an invocation prefix, not as part of the user
 - If text remains after the prefix, apply this skill to that remaining text and keep Inputention active for later turns.
 - If the remaining text asks for next-input prediction, run next-input prediction.
 - If the remaining text is short, ambiguous, keyword-like, lacks an explicit action, is only contact information, or is an object/keyword string without a complete task, run intent clarification.
-- If the remaining text is already clear, answer the request first, then append exactly 9 likely next inputs.
-- If no text remains after the prefix, run next-input prediction from the current conversation context and output exactly 9 items.
+- If the remaining text is already clear, answer the request first, then append the current prediction count of likely next inputs.
+- If no text remains after the prefix, run next-input prediction from the current conversation context and output the current prediction count.
 
 Examples: `?报错了`, `？打不开`, `?won't open`, `?predict my next inputs`.
 
@@ -85,12 +99,12 @@ Operational rule while Inputention is active: answer directly only when the user
 When Inputention is active:
 
 1. First check whether the message is numbered completion against the latest candidate list.
-2. If it is numbered completion, reconstruct the full intent, answer it, then append exactly 9 predictions.
-3. If it is not numbered completion and the current user input is not fully determined, output 3-9 clarification candidates and stop. Do not answer and do not append a 9-item prediction block.
+2. If it is numbered completion, reconstruct the full intent, answer it, then append the current prediction count.
+3. If it is not numbered completion and the current user input is not fully determined, output 3-9 clarification candidates and stop. Do not answer and do not append a prediction block.
 4. If the current user input is semantically clear and fully determined, answer it normally.
-5. After that answer, always output exactly 9 likely next inputs.
-6. The 9 predictions must include both closed predictions (complete sentences) and open predictions (fillable templates with named slots) whenever the next step could reasonably depend on user-specific details.
-7. Include at least 3 open predictions with specific named slots in every active 9-item prediction block, unless the user explicitly requested complete sentences only. All 9 closed items is invalid in active Inputention prediction.
+5. After that answer, always output the current prediction count of likely next inputs.
+6. The prediction block must include both closed predictions (complete sentences) and open predictions (fillable templates with named slots) whenever the next step could reasonably depend on user-specific details.
+7. Include at least `min(3, current prediction count)` open predictions with specific named slots in every active prediction block, unless the user explicitly requested complete sentences only. An all-closed prediction block is invalid when the current prediction count is greater than 1.
 8. If the user does not select or complete a previous candidate list and instead sends a new message, treat the new message as the user's current input. Do not keep asking them to choose from the previous list.
 9. Continue applying this behavior on later turns until the user explicitly opts out.
 
@@ -102,13 +116,13 @@ Before writing predictions, silently inspect the current conversation:
 
 1. Identify the user's stage: understanding, design, revision, challenge/correction, execution, comparison/decision, extension, or verification.
 2. Use only information already present in the conversation. Do not invent private background, identity, emotion, finances, health, or sensitive facts.
-3. Generate at least 12 internal candidates, then choose the best 9.
+3. Generate at least 12 internal candidates, then choose the best items up to the current prediction count.
 4. Sort by likelihood, considering continuity, goal value, user style, information gaps, ease of replying, common dialogue patterns, diversity, and specificity.
-5. Ensure the 9 items are meaningfully different.
+5. Ensure the selected items are meaningfully different.
 
-For active Inputention prediction, output **exactly 9** items. Do not output fewer than 9 predictions, even when the current request was already answered clearly. Predictions must include at least 3 open-ended templates with specific named slots when any plausible follow-up could need user-specific information.
+For active Inputention prediction, output exactly the current prediction count. The default is 5. Do not output fewer or more predictions than the configured count, even when the current request was already answered clearly. Predictions must include at least `min(3, current prediction count)` open-ended templates with specific named slots when any plausible follow-up could need user-specific information.
 
-Before publishing a 9-item prediction block, count its open templates. If there are fewer than 3 open templates, rewrite the least-specific closed predictions into open templates with named slots until the block has at least 3. Example open predictions: `请根据【我的饮食习惯】判断油条是否适合我经常吃。`, `请比较【食物A】和【食物B】哪个更健康。`, `Please adapt this advice for [my health goal].`
+Before publishing a prediction block, count its open templates. If there are fewer than `min(3, current prediction count)` open templates, rewrite the least-specific closed predictions into open templates with named slots until the block meets that minimum. Example open predictions: `请根据【我的饮食习惯】判断油条是否适合我经常吃。`, `请比较【食物A】和【食物B】哪个更健康。`, `Please adapt this advice for [my health goal].`
 
 ## Intent Clarification Workflow
 
@@ -149,14 +163,12 @@ For next-input prediction in Chinese:
 3. ...
 4. ...
 5. ...
-6. ...
-7. ...
-8. ...
-9. ...
 
 你可以直接回复序号；如果某一项里有【待补信息】，也可以这样补全：
 序号；第1处要补的内容；第2处要补的内容；第3处要补的内容
 ```
+
+If the user has changed the prediction count, output exactly that many numbered items instead of the default 5.
 
 For next-input prediction in English:
 
@@ -167,14 +179,12 @@ I predict your most likely next inputs are:
 3. ...
 4. ...
 5. ...
-6. ...
-7. ...
-8. ...
-9. ...
 
 You can reply with just a number. If an item contains [details to fill in], use:
 number; value for the first blank; value for the second blank; value for the third blank
 ```
+
+If the user has changed the prediction count, output exactly that many numbered items instead of the default 5.
 
 For intent clarification in Chinese:
 
@@ -202,7 +212,7 @@ number; value for the first blank; value for the second blank; value for the thi
 
 Do not explain why each option was generated unless the user asks. Clarification lists must contain 3-9 candidates.
 
-When a clear answer has just been given while Inputention is active, append the next-input prediction block after the answer. Do not replace the answer with predictions.
+When a clear answer has just been given while Inputention is active, append the next-input prediction block after the answer using the current prediction count. Do not replace the answer with predictions.
 
 ## Numbered Completion Recognition
 
@@ -255,7 +265,7 @@ When the user selects an option:
 
 After reconstructing intent, answer the reconstructed intent. Do not stop at "I understand."
 
-If Inputention is active, append exactly 9 likely next inputs after the answer.
+If Inputention is active, append the current prediction count of likely next inputs after the answer.
 
 Preferred confirmation:
 
@@ -377,8 +387,9 @@ Before producing candidates, silently verify:
 - Are candidates distinct?
 - Did I avoid adding unsupported facts?
 - Are fillable slots specific and easy to complete?
-- Does every active 9-item prediction block include at least 3 open templates with specific named slots?
+- Does every active prediction block contain exactly the current prediction count?
+- Does every active prediction block include at least `min(3, current prediction count)` open templates with specific named slots?
 - Is the list sorted by likelihood?
 - Is the number of clarification candidates justified?
 - Can I answer immediately after the user selects any candidate?
-- If Inputention is active and I gave a clear answer, did I append exactly 9 next-input predictions?
+- If Inputention is active and I gave a clear answer, did I append the current prediction count of next-input predictions?

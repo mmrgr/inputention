@@ -1,0 +1,209 @@
+version: 1
+project: inputention
+notes:
+  - "Prediction count controls next-input prediction blocks only."
+  - "Intent clarification always uses 3-9 candidates and waits for the next user turn."
+  - "Standalone double-question-mark commands update later prediction count."
+
+defaults:
+  prediction_count: 5
+  clarification_min: 3
+  clarification_max: 9
+  valid_prediction_count_range: [1, 9]
+
+cases:
+  - id: activate_clear_default_5
+    input: "?每天喝奶茶有什么危害"
+    prior_state:
+      inputention_active: false
+      prediction_count: null
+      latest_candidate_list: null
+    expected:
+      mode: "clear_answer_then_prediction"
+      inputention_active: true
+      answer_user_request: true
+      prediction_count: 5
+      prediction_items_exactly: 5
+      min_open_prediction_templates: 3
+      clarify_before_answering: false
+
+  - id: set_prediction_count_ascii
+    input: "??3"
+    prior_state:
+      inputention_active: true
+      prediction_count: 5
+      latest_candidate_list: null
+    expected:
+      mode: "set_prediction_count"
+      new_prediction_count: 3
+      answer_user_request: false
+      produce_clarification_candidates: false
+      produce_prediction_block: false
+      acknowledgement_required: true
+
+  - id: set_prediction_count_cjk
+    input: "？？3"
+    prior_state:
+      inputention_active: true
+      prediction_count: 5
+      latest_candidate_list: null
+    expected:
+      mode: "set_prediction_count"
+      new_prediction_count: 3
+      answer_user_request: false
+      produce_clarification_candidates: false
+      produce_prediction_block: false
+      acknowledgement_required: true
+
+  - id: set_prediction_count_with_space
+    input: "？？ 4"
+    prior_state:
+      inputention_active: true
+      prediction_count: 5
+      latest_candidate_list: null
+    expected:
+      mode: "set_prediction_count"
+      new_prediction_count: 4
+      answer_user_request: false
+      produce_prediction_block: false
+
+  - id: invalid_count_word_number
+    input: "？？三"
+    prior_state:
+      inputention_active: true
+      prediction_count: 5
+      latest_candidate_list: null
+    expected:
+      mode: "intent_clarification_or_normal_input"
+      is_prediction_count_setting: false
+      must_not_set_prediction_count: true
+
+  - id: invalid_count_extra_text
+    input: "？？3 请继续"
+    prior_state:
+      inputention_active: true
+      prediction_count: 5
+      latest_candidate_list: null
+    expected:
+      mode: "intent_clarification_or_normal_input"
+      is_prediction_count_setting: false
+      must_not_set_prediction_count: true
+
+  - id: clear_after_count_change
+    input: "？每天喝油条有什么影响"
+    prior_state:
+      inputention_active: true
+      prediction_count: 3
+      latest_candidate_list: null
+    expected:
+      mode: "clear_answer_then_prediction"
+      answer_user_request: true
+      prediction_items_exactly: 3
+      min_open_prediction_templates: 3
+
+  - id: ambiguous_keyword_string
+    input: "?南瓜 空气炸锅 蒙赤"
+    prior_state:
+      inputention_active: false
+      prediction_count: null
+      latest_candidate_list: null
+    expected:
+      mode: "intent_clarification"
+      inputention_active: true
+      answer_user_request: false
+      clarification_items_min: 3
+      clarification_items_max: 9
+      produce_prediction_block: false
+      candidates_should_preserve_keywords:
+        - "南瓜"
+        - "空气炸锅"
+        - "蒙赤"
+      uses_numbered_completion_mechanism: true
+
+  - id: email_only_input
+    input: "?1456238359@qq.com"
+    prior_state:
+      inputention_active: false
+      prediction_count: null
+      latest_candidate_list: null
+    expected:
+      mode: "intent_clarification"
+      answer_user_request: false
+      clarification_items_min: 3
+      clarification_items_max: 9
+      produce_prediction_block: false
+      candidates_should_preserve_keywords:
+        - "1456238359@qq.com"
+
+  - id: ambiguous_error
+    input: "?报错了"
+    prior_state:
+      inputention_active: false
+      prediction_count: null
+      latest_candidate_list: null
+    expected:
+      mode: "intent_clarification"
+      answer_user_request: false
+      clarification_items_min: 3
+      clarification_items_max: 9
+      produce_prediction_block: false
+      requires_fillable_slots: true
+
+  - id: numbered_completion_with_one_slot
+    input: "4；贝贝南瓜"
+    prior_state:
+      inputention_active: true
+      prediction_count: 5
+      latest_candidate_list:
+        source: "clarification"
+        items:
+          "4": "请告诉我【南瓜品种】是否适合用空气炸锅烤，以及具体做法。"
+    expected:
+      mode: "numbered_completion"
+      selected_item: 4
+      reconstructed_intent: "请告诉我贝贝南瓜是否适合用空气炸锅烤，以及具体做法。"
+      answer_reconstructed_intent: true
+      append_prediction_count: 5
+
+  - id: numbered_completion_with_style_slots
+    input: "5；求职；正式"
+    prior_state:
+      inputention_active: true
+      prediction_count: 5
+      latest_candidate_list:
+        source: "prediction"
+        items:
+          "5": "请帮我写一封用于【使用场景】的【语气风格】邮件。"
+    expected:
+      mode: "numbered_completion"
+      selected_item: 5
+      reconstructed_intent: "请帮我写一封用于求职的正式邮件。"
+      answer_reconstructed_intent: true
+      append_prediction_count: 5
+
+  - id: ignore_old_list_new_request
+    input: "帮我写一封请假邮件"
+    prior_state:
+      inputention_active: true
+      prediction_count: 5
+      latest_candidate_list:
+        source: "clarification"
+        items:
+          "1": "请帮我排查【报错内容】。"
+    expected:
+      mode: "clear_answer_then_prediction"
+      treat_as_new_input: true
+      must_not_force_old_list_selection: true
+      answer_user_request: true
+      prediction_items_exactly: 5
+
+  - id: opt_out_chinese
+    input: "不要再预测"
+    prior_state:
+      inputention_active: true
+      prediction_count: 5
+      latest_candidate_list: null
+    expected:
+      mode: "opt_out"
+      inputention_active: false
+      append_prediction_block: false
